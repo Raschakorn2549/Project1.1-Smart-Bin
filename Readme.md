@@ -1,66 +1,82 @@
-# ♻️ Smart Trash Sorting System
+# ♻️ Smart Bin — Automatic Metal / Non-metal Sorting
 
-ระบบถังขยะอัจฉริยะที่แยกประเภทขยะโลหะและไม่ใช่โลหะอัตโนมัติ พร้อมส่งข้อมูลผ่าน MQTT
+An ESP32-based bin that notices when trash is dropped in, checks whether it is metal,
+and turns a servo to send it to the right compartment. Counts are published over **MQTT** in real time
+so they can be shown on a dashboard.
 
-## 📌 Features
-- ตรวจจับวัตถุด้วย Ultrasonic Sensor
-- แยกแยะโลหะ/ไม่ใช่โลหะด้วย Inductive Sensor
-- หมุน Servo Motor เพื่อแยกขยะอัตโนมัติ
-- ส่งข้อมูลจำนวนขยะผ่าน MQTT แบบ Real-time
-- รีเซ็ตข้อมูลได้ด้วยปุ่ม
+<!-- TODO: ใส่รูปตัวเครื่องจริง / คลิปตอนแยกขยะ / ภาพวงจร -->
+<!-- ![Smart bin](docs/smartbin.jpg) -->
 
-## 🛠️ Hardware
-- ESP32
-- Ultrasonic Sensor (HC-SR04)
-- Inductive Sensor
-- Servo Motor
-- Push Button
+## How it works
 
-## 📡 Tech Stack
-- **Microcontroller**: ESP32
-- **Protocol**: MQTT (broker.hivemq.com)
-- **Notification**: LINE Notify
-- **Library**: WiFi, PubSubClient, Servo
-
-## 📁 Project Structure
 ```
-├── main.ino          # โค้ดหลัก
-├── secrets.h         # WiFi, MQTT, LINE credentials (ไม่อัป GitHub)
-└── README.md
+ Ultrasonic (HC-SR04) ── object < 15 cm? ──► Inductive sensor ── metal?
+                                                   │
+                                   yes ◄───────────┴──────────► no
+                              servo → 0° (metal)          servo → 180° (non-metal)
+                                                   │
+                                     update counters, publish MQTT
+                                     topic: trash/object
 ```
 
-## ⚙️ Installation
+Example message:
 
-1. ติดตั้ง Library ใน Arduino IDE:
-   - `PubSubClient`
-   - `Servo`
-
-2. สร้างไฟล์ `secrets.h`:
-```cpp
-#define WIFI_SSID "your_wifi_name"
-#define WIFI_PASSWORD "your_wifi_password"
-#define MQTT_CLIENT "your_client_id"
-#define MQTT_USERNAME ""
-#define MQTT_PASSWORD ""
-#define LINE_TOKEN "your_line_token"
+```json
+{"data": {"amount": 12, "non_metal": 7, "metal": 5}}
 ```
 
-3. แก้ Pin ให้ตรงกับวงจรของคุณใน `main.ino`
+A push button resets all counters.
 
-## 🔌 Pin Configuration
-| ชื่อ | Pin |
+## Hardware
+
+| Part | Purpose |
+|---|---|
+| ESP32 | Controller + Wi-Fi |
+| HC-SR04 ultrasonic sensor | Detect an incoming object |
+| Inductive proximity sensor | Metal / non-metal check |
+| Servo motor | Tilt the flap to the correct side |
+| Push button | Reset counters |
+
+### Pin configuration
+
+| Signal | Pin |
 |---|---|
 | Ultrasonic Trig | 9 |
 | Ultrasonic Echo | 10 |
-| Inductive Sensor | 2 |
-| Servo Motor | 6 |
-| Reset Button | 12 |
+| Inductive sensor | 2 |
+| Servo | 6 |
+| Reset button | 12 |
 
-## 🚀 How it works
-1. Ultrasonic sensor ตรวจจับวัตถุในระยะ 15 cm
-2. Inductive sensor ตรวจสอบว่าเป็นโลหะหรือไม่
-3. Servo หมุนไปทางซ้าย (โลหะ) หรือขวา (ไม่ใช่โลหะ)
-4. ส่งข้อมูลจำนวนขยะไปยัง MQTT broker
+## Tech stack
 
-## 🔐 Environment Variables
-อย่าลืมสร้างไฟล์ `secrets.h` ไว้เก็รหัสตัวแปร
+ESP32 · Arduino (C++) · MQTT (`broker.hivemq.com`) · PubSubClient · Servo
+
+## Getting started
+
+1. Install these libraries in Arduino IDE: **PubSubClient**, **Servo**
+2. Create `secrets.h` next to `smartbinproject.ino` (it is git-ignored):
+
+```cpp
+#define WIFI_SSID      "your_wifi_name"
+#define WIFI_PASSWORD  "your_wifi_password"
+#define MQTT_CLIENT    "your_client_id"
+#define MQTT_USERNAME  ""
+#define MQTT_PASSWORD  ""
+#define LINE_TOKEN     ""
+```
+
+3. Adjust the pins in `smartbinproject.ino` to match your wiring, then upload.
+4. Subscribe to `trash/object` on the broker (e.g. with MQTT Explorer or Node-RED) to see the counts.
+
+## Project structure
+
+```
+├── smartbinproject.ino   # Main firmware
+├── secrets.h             # Wi-Fi / MQTT credentials (not committed)
+└── Readme.md
+```
+
+## Future work
+
+- Replace the inductive-only check with a camera + image classifier to sort plastic / paper / glass
+- Dashboard showing fill level and daily statistics
